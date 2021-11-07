@@ -6,9 +6,11 @@ const addRequestId = require('express-request-id')();
 var jwt = require('jwt-simple');
 
 const { headers } = require('./views/headers');
+const { showRandomImages } = require('./views/showRandomImages');
+const { listCollectionNames } = require('./views/listCollectionNames');
 
-const clientId = 'HU4E8ef03E1wJi2XhHgpWt8rETUuEUsU';
-const clientSecret = 'kZMJW6ir5XJd4djR';
+const clientId = process.env.CLIENT_ID;
+const clientSecret = process.env.CLIENT_SECRET;
 const APIURL = 'https://api.shutterstock.com/v2';
 
 const cookieParser = require('cookie-parser');
@@ -61,11 +63,9 @@ const isUserLoggedIn = (req, res, next) => {
  */
 const updateAccessToken = async (req, res, next) => {
   const { tokenIssuedTimestamp, expiresIn, refreshToken, user } = req;
-  console.log(`tokenIssuedTimeStamp ${tokenIssuedTimestamp}`);
   const currentTimeStamp = Math.round(new Date() / 1000);
 
   if (currentTimeStamp - tokenIssuedTimestamp > (expiresIn - 100)) {
-    console.log(`${clientId} ${clientSecret} ${refreshToken}`)
     // Since an hour as passed, we should update the access token using the refresh token and re-update the cookies
     const body = {
       client_id: clientId,
@@ -167,21 +167,41 @@ app.get('/logout', (req, res) => {
  * If user is logged in but access token has expired (verified by "updateAccessToken"), we first fetch new token and then fetch the users' collections
  */
 app.get('/viewCollections', isUserLoggedIn, updateAccessToken, async (req, res) => {
-  console.log(`shutterstockAccessToken ` + JSON.stringify(req.shutterstockAccessToken, null, 2))
   try {
     const response = await axios.get(`${APIURL}/images/collections`, {
       headers: {
         Authorization: `Bearer ${req.shutterstockAccessToken}`
       }
     });
-    res.send(JSON.stringify(response.data, null, 2))
+    res.send(listCollectionNames(response.data));
+    //res.send(JSON.stringify(response.data, null, 2))
   } catch(e) {
-    console.log(`Error ${e}`)
-    console.log(JSON.stringify(e.response.data, null, 2))
-    res.status(404).send('Bad bad')
+    res.status(404).send(`Error retrieving user collections: ${e.response.data}`)
   }
 })
 
+/**
+ * This endpoint shows the application of client_credential grant token
+ * Note with client_credential grant type the application can only access non-user realm operations such as search images
+ * If the application attempts to use this token to fetch user collections, it will fail
+ */
+app.get('/showRandomImages', async (req, res) => {
+  const body = {
+    client_id: clientId,
+    client_secret: clientSecret,
+    grant_type: 'client_credentials'
+  };
+
+  const { data: { access_token: clientCredentialsToken }} = await axios.post(`${APIURL}/oauth/access_token`, body);
+
+  const randomImages = await axios.get(`${APIURL}/images/search?query=cats&sort=random`, {
+    headers: {
+      Authorization: `Bearer ${clientCredentialsToken}`
+    }
+  });
+
+  res.send(showRandomImages(randomImages.data))
+});
 /**
  * Starts the express app on port 3000
  */

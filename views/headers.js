@@ -1,5 +1,6 @@
 const headers = (isLoggedIn = false, name = null) => {
-  const welcomeHeader = isLoggedIn ? `Welcome ${name}` : `<a href="login">Login</a>`
+  const welcomeHeader = isLoggedIn ? `Welcome ${name}` : `<a href="login">Login</a>`;
+  const showRandomImages = `<br/><a href="showRandomImages">Show Random Images</a><br/>`;
   const showViewCollectionsLink = isLoggedIn ? `
     <br/>
       <a href="logout">Log Out</a>
@@ -8,10 +9,9 @@ const headers = (isLoggedIn = false, name = null) => {
     <br/>
   ` : '';
   return `
-    <body>
       ${welcomeHeader}
+      ${showRandomImages}
       ${showViewCollectionsLink}
-    </body>
   `
 }
 
